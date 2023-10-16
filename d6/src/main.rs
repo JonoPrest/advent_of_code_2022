@@ -10,10 +10,15 @@ fn main() -> anyhow::Result<()> {
     let parsed = input_parser::parse_input(&input_file).context("parsing file")?;
     // println!("parsed {:?}", parsed);
 
-    let marker = find_marker(parsed, 4)?;
+    let marker = find_marker(parsed.clone(), 4)?;
 
     println!("Marker: {}", marker);
 
+    //Part 2
+
+    let marker_2 = find_marker(parsed, 14)?;
+
+    println!("Marker 2: {}", marker_2);
     Ok(())
 }
 
