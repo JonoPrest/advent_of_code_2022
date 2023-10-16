@@ -2,12 +2,12 @@ use anyhow::{anyhow, Context};
 use std::{
     collections::VecDeque,
     fs::File,
-    io::{BufRead, BufReader, Read},
+    io::{BufRead, BufReader},
 };
 
 type CrateStack = VecDeque<char>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Ship(Vec<CrateStack>);
 
 impl Ship {
@@ -35,6 +35,31 @@ impl Ship {
         Ok(())
     }
 
+    pub fn apply_instruction_multi(&mut self, instruction: Instruction) -> anyhow::Result<()> {
+        let mut intermediate_stack = VecDeque::new();
+        for _ in 0..instruction.move_amount {
+            let from_stack = self
+                .0
+                .get_mut(instruction.from - 1)
+                .ok_or_else(|| anyhow!("failed to get stack {}", instruction.from))?;
+
+            let val = from_stack
+                .pop_front()
+                .ok_or_else(|| anyhow!("no val on queue"))?;
+
+            intermediate_stack.push_front(val);
+        }
+
+        for val in intermediate_stack.iter() {
+            let to_stack = self
+                .0
+                .get_mut(instruction.to - 1)
+                .ok_or_else(|| anyhow!("failed to get stack {}", instruction.to))?;
+
+            to_stack.push_front(val.clone());
+        }
+        Ok(())
+    }
     pub fn get_top_message(&self) -> String {
         self.0
             .iter()
@@ -45,7 +70,7 @@ impl Ship {
 
 type CrateStackId = usize;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Instruction {
     pub from: CrateStackId,
     pub to: CrateStackId,
