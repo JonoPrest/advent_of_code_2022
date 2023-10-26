@@ -3,12 +3,12 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use anyhow::anyhow;
 
 #[derive(Debug, Clone)]
-pub struct NodeRef(Rc<RefCell<Node>>);
+pub struct FileTreeNode(Rc<RefCell<Node>>);
 
 #[derive(Debug)]
 enum Parent {
     Root,
-    Node(NodeRef),
+    Node(FileTreeNode),
 }
 
 #[derive(Debug)]
@@ -20,8 +20,12 @@ pub struct Node {
 
 #[derive(Debug)]
 pub enum Item {
-    File { size: i32 },
-    Dir { content: HashMap<String, NodeRef> },
+    File {
+        size: i32,
+    },
+    Dir {
+        content: HashMap<String, FileTreeNode>,
+    },
 }
 
 impl Item {
@@ -44,7 +48,7 @@ impl Node {
         }
     }
 
-    fn new(name: String, item: Item, parent: NodeRef) -> Self {
+    fn new(name: String, item: Item, parent: FileTreeNode) -> Self {
         Node {
             parent: Parent::Node(parent),
             name,
@@ -52,11 +56,11 @@ impl Node {
         }
     }
 
-    fn new_dir(name: String, parent: NodeRef) -> Self {
+    fn new_dir(name: String, parent: FileTreeNode) -> Self {
         Self::new(name, Item::new_dir(), parent)
     }
 
-    fn new_file(name: String, file_size: i32, parent: NodeRef) -> Self {
+    fn new_file(name: String, file_size: i32, parent: FileTreeNode) -> Self {
         Self::new(name, Item::new_file(file_size), parent)
     }
 
@@ -90,7 +94,7 @@ impl Node {
     //     Ok(())
     // }
     //
-    // pub fn cd(&self, dir_name: String) -> anyhow::Result<NodeRef> {
+    // pub fn cd(&self, dir_name: String) -> anyhow::Result<FileTreeNode> {
     //     match &self.item {
     //         Item::File { .. } => Err(anyhow!("Expected node to be dir"))?,
     //         Item::Dir { content } => {
@@ -102,7 +106,7 @@ impl Node {
     //     }
     // }
     //
-    // pub fn cd_up(&self) -> anyhow::Result<NodeRef> {
+    // pub fn cd_up(&self) -> anyhow::Result<FileTreeNode> {
     //     match &self.parent {
     //         Parent::Root => Err(anyhow!("Cannot cd .., {} is the root", self.name))?,
     //         Parent::Node(parent) => Ok(parent.clone()),
@@ -182,13 +186,13 @@ impl Node {
     // }
 }
 
-impl NodeRef {
+impl FileTreeNode {
     pub fn create_root(name: String) -> Self {
-        NodeRef(Rc::new(RefCell::new(Node::create_root(name))))
+        FileTreeNode(Rc::new(RefCell::new(Node::create_root(name))))
     }
 
     fn new(node: Node) -> Self {
-        NodeRef(Rc::new(RefCell::new(node)))
+        FileTreeNode(Rc::new(RefCell::new(node)))
     }
 
     fn new_dir(name: String, parent: Self) -> Self {
@@ -229,7 +233,7 @@ impl NodeRef {
         Ok(())
     }
 
-    pub fn cd(&self, dir_name: String) -> anyhow::Result<NodeRef> {
+    pub fn cd(&self, dir_name: String) -> anyhow::Result<FileTreeNode> {
         match &self.0.borrow_mut().item {
             Item::File { .. } => Err(anyhow!("Expected node to be dir"))?,
             Item::Dir { content } => {
@@ -241,7 +245,7 @@ impl NodeRef {
         }
     }
 
-    pub fn cd_up(&self) -> anyhow::Result<NodeRef> {
+    pub fn cd_up(&self) -> anyhow::Result<FileTreeNode> {
         match &self.0.borrow_mut().parent {
             Parent::Root => Err(anyhow!(
                 "Cannot cd .., {} is the root",
@@ -250,106 +254,81 @@ impl NodeRef {
             Parent::Node(parent) => Ok(parent.clone()),
         }
     }
-    // pub fn mkdir(&mut self, dir_name: String) -> anyhow::Result<()> {
-    //     match &mut self.item {
-    //         Item::File { .. } => Err(anyhow!("Expected node to be dir"))?,
-    //         Item::Dir { content } => {
-    //             let this = self;
-    //             content
-    //                 .entry(dir_name.clone())
-    //                 .or_insert_with(|| Self::new(dir_name, Box::new(this)))
-    //         }
-    //     };
-    //     Ok(())
-    // }
-    // pub fn get_item_at_path(&self, path: PathBuf) -> anyhow::Result<Option<&Node>> {
-    //     let mut components: VecDeque<_> = path.iter().collect();
-    //     let first_item_opt = components.pop_front();
-    //     match first_item_opt {
-    //         None => Ok(Some(self)),
-    //         Some(first_item_os_str) => {
-    //             let first_item = first_item_os_str
-    //                 .to_str()
-    //                 .ok_or_else(|| anyhow!("failed converting OsString"))?;
-    //
-    //             match &self.item {
-    //                 Item::File { size: _ } => {
-    //                     Err(anyhow!("Expected dir instead of file at {}", first_item))
-    //                 }
-    //                 Item::Dir { content } => {
-    //                     let node_opt = content.get(first_item);
-    //
-    //                     match node_opt {
-    //                         None => Ok(None),
-    //                         Some(node) => {
-    //                             let next_path = PathBuf::from_iter(components.iter());
-    //
-    //                             Self::get_item_at_path(node, next_path)
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-    // pub fn create_dir_at_path(&mut self, path: PathBuf) -> anyhow::Result<()> {
-    //     let mut components: VecDeque<_> = path.iter().collect();
-    //     let first_item_opt = components.pop_front();
-    //     match first_item_opt {
-    //         None => Ok(()),
-    //         Some(first_item_os_str) => {
-    //             let first_item = first_item_os_str
-    //                 .to_str()
-    //                 .ok_or_else(|| anyhow!("failed converting OsString"))?
-    //                 .to_string();
-    //
-    //             match &mut self.item {
-    //                 Item::File { size: _ } => {
-    //                     Err(anyhow!("Expected dir instead of file at {}", first_item))
-    //                 }
-    //                 Item::Dir { content } => {
-    //                     let next_node = content.entry(first_item.clone()).or_insert(Node {
-    //                         name: first_item,
-    //                         item: Item::Dir {
-    //                             content: HashMap::new(),
-    //                         },
-    //                     });
-    //
-    //                     let next_path = PathBuf::from_iter(components.iter());
-    //                     Self::create_dir_at_path(next_node, next_path)
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+
+    pub fn get_size(&self) -> i32 {
+        match &self.0.borrow_mut().item {
+            Item::File { size, .. } => size.clone(),
+            Item::Dir { content } => content.values().map(|ft| ft.get_size()).sum(),
+        }
+    }
+
+    pub fn sizes_at_most_100_000(&self) -> i32 {
+        match &self.0.borrow_mut().item {
+            Item::File { size, .. } => size.clone(),
+            Item::Dir { content } => content
+                .values()
+                .filter_map(|ft| {
+                    if !ft.is_dir() {
+                        return None;
+                    }
+                    let size = ft.get_size();
+                    if size <= 100_000 {
+                        Some(size)
+                    } else {
+                        None
+                    }
+                })
+                .sum(),
+        }
+    }
+
+    fn is_dir(&self) -> bool {
+        match self.0.borrow_mut().item {
+            Item::Dir { .. } => true,
+            Item::File { .. } => false,
+        }
+    }
+
+    pub fn sizes_at_most_100_000_with_double_count(&self) -> i32 {
+        match &self.0.borrow_mut().item {
+            Item::File { size, .. } => size.clone(),
+            Item::Dir { content } => content
+                .values()
+                .filter_map(|ft| {
+                    if !ft.is_dir() {
+                        return None;
+                    }
+                    let size = ft.get_size();
+                    if size <= 100_000 {
+                        Some(size + ft.sizes_at_most_100_000_with_double_count())
+                    } else {
+                        Some(ft.sizes_at_most_100_000_with_double_count())
+                    }
+                })
+                .sum(),
+        }
+    }
+
+    pub fn sizes_at_least_100_000(&self) -> i32 {
+        match &self.0.borrow_mut().item {
+            Item::File { size, .. } => size.clone(),
+            Item::Dir { content } => content
+                .values()
+                .filter_map(|ft| {
+                    if !ft.is_dir() {
+                        return None;
+                    }
+                    let size = ft.get_size();
+                    if size > 100_000 {
+                        Some(size)
+                    } else {
+                        None
+                    }
+                })
+                .sum(),
+        }
+    }
 }
-// #[derive(Debug)]
-// pub struct FileTree {
-//     root: Node,
-// }
-//
-// impl FileTree {
-//     pub fn new() -> Self {
-//         FileTree {
-//             root: Node {
-//                 name: "/".to_string(),
-//                 item: Item::Dir {
-//                     content: HashMap::new(),
-//                 },
-//             },
-//         }
-//     }
-//
-//     // pub fn get_item_at_path(&self,)
-//
-//     pub fn create_dir_at_path(&self, path: PathBuf) -> anyhow::Result<()> {
-//         for segment in path.iter() {
-//             ()
-//         }
-//
-//         Ok(())
-//     }
-// }
 
 #[cfg(test)]
 mod test {
@@ -363,7 +342,4 @@ mod test {
         let actual: Vec<_> = path.iter().map(|item| item.to_str().unwrap()).collect();
         assert_eq!(expected, actual);
     }
-
-    // #[test]
-    // fn create_dir_at_path
 }
