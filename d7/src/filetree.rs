@@ -257,28 +257,8 @@ impl FileTreeNode {
 
     pub fn get_size(&self) -> i32 {
         match &self.0.borrow_mut().item {
-            Item::File { size, .. } => size.clone(),
+            Item::File { size, .. } => *size,
             Item::Dir { content } => content.values().map(|ft| ft.get_size()).sum(),
-        }
-    }
-
-    pub fn sizes_at_most_100_000(&self) -> i32 {
-        match &self.0.borrow_mut().item {
-            Item::File { size, .. } => size.clone(),
-            Item::Dir { content } => content
-                .values()
-                .filter_map(|ft| {
-                    if !ft.is_dir() {
-                        return None;
-                    }
-                    let size = ft.get_size();
-                    if size <= 100_000 {
-                        Some(size)
-                    } else {
-                        None
-                    }
-                })
-                .sum(),
         }
     }
 
@@ -291,7 +271,7 @@ impl FileTreeNode {
 
     pub fn sizes_at_most_100_000_with_double_count(&self) -> i32 {
         match &self.0.borrow_mut().item {
-            Item::File { size, .. } => size.clone(),
+            Item::File { size, .. } => *size,
             Item::Dir { content } => content
                 .values()
                 .filter_map(|ft| {
@@ -309,24 +289,36 @@ impl FileTreeNode {
         }
     }
 
-    pub fn sizes_at_least_100_000(&self) -> i32 {
-        match &self.0.borrow_mut().item {
-            Item::File { size, .. } => size.clone(),
-            Item::Dir { content } => content
-                .values()
-                .filter_map(|ft| {
-                    if !ft.is_dir() {
-                        return None;
-                    }
-                    let size = ft.get_size();
-                    if size > 100_000 {
-                        Some(size)
-                    } else {
-                        None
-                    }
-                })
-                .sum(),
+    fn find_all_dirs_of_size_gt_and_push(&self, size: i32, dirs: &mut Vec<Self>) {
+        if self.is_dir() && self.get_size() > size {
+            dirs.push(self.clone());
         }
+
+        match &self.0.borrow_mut().item {
+            Item::File { .. } => (), //Do nothing
+            Item::Dir { content } => {
+                for ft in content.values() {
+                    ft.find_all_dirs_of_size_gt_and_push(size, dirs);
+                }
+            }
+        }
+    }
+
+    pub fn find_all_dirs_of_size_gt(&self, size: i32) -> Vec<Self> {
+        let mut dirs = Vec::new();
+        self.find_all_dirs_of_size_gt_and_push(size, &mut dirs);
+
+        dirs
+    }
+
+    pub fn find_smallest_dir_of_min_size(&self, size: i32) -> Option<Self> {
+        self.find_all_dirs_of_size_gt(size)
+            .into_iter()
+            .min_by(|x, y| x.get_size().cmp(&y.get_size()))
+    }
+
+    pub fn get_remaining_space(&self, total_space: i32) -> i32 {
+        total_space - self.get_size()
     }
 }
 

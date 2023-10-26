@@ -20,6 +20,23 @@ fn main() -> anyhow::Result<()> {
         "Total of sizes at most 100_000 including double count of files: {}",
         root_node.sizes_at_most_100_000_with_double_count()
     );
+
+    let total_space = 70_000_000;
+    let space_needed = 30_000_000;
+
+    let current_space = root_node.get_remaining_space(total_space);
+
+    let amount_to_remove = space_needed - current_space;
+
+    let smallest_dir = root_node
+        .find_smallest_dir_of_min_size(amount_to_remove)
+        .expect("expected a dir");
+
+    println!("Smallest dir removables");
+    println!("name: {}", smallest_dir.get_name());
+    println!("size: {}", smallest_dir.get_size());
+
+    //Part two
     Ok(())
 }
 
@@ -97,7 +114,7 @@ mod test {
 
     use crate::input_parser;
     #[test]
-    fn day_one_example() -> anyhow::Result<()> {
+    fn part_one_example() -> anyhow::Result<()> {
         let input_file = File::open("./day_1_example.txt").context("opening file")?;
         let lexical_data = input_parser::parse_input(&input_file).context("parsing file")?;
 
@@ -108,6 +125,39 @@ mod test {
             expected_val,
             root_node.sizes_at_most_100_000_with_double_count()
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn part_two_example() -> anyhow::Result<()> {
+        let input_file = File::open("./day_1_example.txt").context("opening file")?;
+        let lexical_data = input_parser::parse_input(&input_file).context("parsing file")?;
+
+        let root_node = super::construct_file_tree(lexical_data).context("main construction")?;
+
+        let expected_total_size = 48381165;
+        assert_eq!(expected_total_size, root_node.get_size());
+
+        let total_space = 70_000_000;
+        let space_needed = 30_000_000;
+
+        let current_expected_unused_space = 21618835;
+        assert_eq!(
+            current_expected_unused_space,
+            root_node.get_remaining_space(total_space.clone())
+        );
+
+        let amount_to_remove = space_needed - current_expected_unused_space;
+
+        let expected_smallest_dir_delete_size = 24933642;
+
+        let smallest_dir = root_node
+            .find_smallest_dir_of_min_size(amount_to_remove)
+            .unwrap();
+
+        assert_eq!(expected_smallest_dir_delete_size, smallest_dir.get_size());
+
         Ok(())
     }
 }
