@@ -16,6 +16,16 @@ fn main() -> anyhow::Result<()> {
     println!("Visible trees:");
     println!("{}", visible_trees_count);
 
+    //Part 2
+    let max_scenic_score = parsed
+        .iter()
+        .map(|tree| tree.calc_scenic_score().expect("Failed calculating score"))
+        .max()
+        .expect("Should have been items iter of trees");
+
+    println!("Max Scenic Score:");
+    println!("{}", max_scenic_score);
+
     Ok(())
 }
 
@@ -36,5 +46,19 @@ mod test {
             .count();
 
         assert_eq!(21, visible_trees_count);
+    }
+
+    #[test]
+    fn given_example_part_2() {
+        let input_file = File::open("./example.txt").expect("opening file");
+        let parsed = input_parser::parse_input(&input_file).expect("parsing file");
+
+        let max_scenic_score = parsed
+            .iter()
+            .map(|tree| tree.calc_scenic_score().expect("Failed calculating score"))
+            .max()
+            .expect("Should have been items iter of trees");
+
+        assert_eq!(8, max_scenic_score);
     }
 }
