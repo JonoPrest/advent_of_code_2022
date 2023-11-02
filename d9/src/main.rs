@@ -40,8 +40,34 @@ mod test {
 
     use crate::{
         input_parser,
-        rope_simulator::{Coordinate, RopeMap},
+        rope_simulator::{
+            Coordinate,
+            Direction::{Down, Left, Right, Up},
+            Motion, RopeMap,
+        },
     };
+
+    #[test]
+    fn given_example_part_parse_check_1() {
+        let input_file = File::open("./example.txt").expect("opening file");
+        let parsed = input_parser::parse_input(&input_file).expect("parsing file");
+
+        let expected_motions = vec![
+            Motion::new(Right, 4),
+            Motion::new(Up, 4),
+            Motion::new(Left, 3),
+            Motion::new(Down, 1),
+            Motion::new(Right, 4),
+            Motion::new(Down, 1),
+            Motion::new(Left, 5),
+            Motion::new(Right, 2),
+        ];
+
+        assert_eq!(
+            expected_motions, parsed,
+            "parser should have parsed motions"
+        );
+    }
 
     #[test]
     fn given_example_part_1() {
@@ -51,7 +77,7 @@ mod test {
         let mut rope_map = RopeMap::init();
 
         for motion in parsed {
-            rope_map.move_rope_times(motion.direction, motion.amount);
+            rope_map.move_rope_n_times(motion.direction, motion.amount);
         }
 
         let no_unique_tail_positions = rope_map

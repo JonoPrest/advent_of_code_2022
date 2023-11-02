@@ -6,13 +6,19 @@ pub enum Direction {
     Right,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Motion {
     pub direction: Direction,
     pub amount: i32,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+impl Motion {
+    pub fn new(direction: Direction, amount: i32) -> Self {
+        Motion { amount, direction }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Coordinate {
     x: i32,
     y: i32,
@@ -35,8 +41,17 @@ impl Coordinate {
             Direction::Left => Self::new(self.x - 1, self.y),
         }
     }
+
+    fn val_is_within_1_range(a: i32, b: i32) -> bool {
+        a >= b - 1 && a <= b + 1
+    }
+
+    fn is_within_1_range(&self, cmp: &Coordinate) -> bool {
+        Self::val_is_within_1_range(self.x, cmp.x) && Self::val_is_within_1_range(self.y, cmp.y)
+    }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct RopeCoordinate {
     pub head: Coordinate,
     pub tail: Coordinate,
@@ -51,32 +66,13 @@ impl RopeCoordinate {
         Self::new(Coordinate::init(), Coordinate::init())
     }
 
-    fn val_is_within_1_range(a: i32, b: i32) -> bool {
-        a <= b + 1 && a >= b - 1
-    }
-
-    fn co_is_withi_1_range(co_a: &Coordinate, co_b: &Coordinate) -> bool {
-        Self::val_is_within_1_range(co_a.x, co_b.x) && Self::val_is_within_1_range(co_a.y, co_b.y)
-    }
-
     fn move_rope(&self, direction: &Direction) -> Self {
         match (self, direction) {
             (rope_co, direction)
-                //Only move the head in the following cases 
-                //1. they occupy the same coordinate
-                if (rope_co.head == rope_co.tail)
-                //2. they are on the same row and head is moving up or down
-                    || (rope_co.head.y == rope_co.tail.y
-                        && matches!(direction, Direction::Up | Direction::Down))
-                //3. they are on the same column and moving left or right
-                    || (rope_co.head.x == rope_co.tail.x
-                        && matches!(direction, Direction::Left | Direction::Right))
-                //4. they are not in the same row or column and the head is moving
-                //within a range of 1 of the tail
-                    ||(rope_co.head.x != rope_co.tail.x
-                        &&rope_co.head.y != rope_co.tail.y
-                        && matches!(rope_co.head.move_direction(&direction),
-                            new_head_coordinate if Self::co_is_withi_1_range(&new_head_coordinate, &rope_co.tail))) =>
+                //Only move the head in the the case
+                //where the move destination is within 1
+                //range of tail
+                if rope_co.head.move_direction(&direction).is_within_1_range(&rope_co.tail) =>
             {
               Self::new(
                     rope_co.head.move_direction(direction),
@@ -141,5 +137,106 @@ impl RopeMap {
         for _ in 0..n {
             self.move_rope(&direction);
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use Direction::{Down, Left, Right, Up};
+
+    #[test]
+    fn validate_within_one_range_path() {
+        let co_1 = Coordinate::new(1, 1);
+        let co_2 = Coordinate::new(1, 2);
+        let co_3 = Coordinate::new(2, 2);
+        let co_4 = Coordinate::new(2, 1);
+        let co_5 = Coordinate::new(2, 0);
+        let co_6 = Coordinate::new(1, 0);
+        let co_7 = Coordinate::new(0, 0);
+        let co_8 = Coordinate::new(0, 1);
+        let co_9 = Coordinate::new(0, 2);
+        // let co_4 = Coordinate::new(0, 0);
+        // let co_4 = Coordinate::new(0, 1);
+
+        assert!(co_1.is_within_1_range(&co_1));
+        assert!(co_1.is_within_1_range(&co_2));
+        assert!(co_1.is_within_1_range(&co_3));
+        assert!(co_1.is_within_1_range(&co_4));
+        assert!(co_1.is_within_1_range(&co_5));
+        assert!(co_1.is_within_1_range(&co_6));
+        assert!(co_1.is_within_1_range(&co_7));
+        assert!(co_1.is_within_1_range(&co_8));
+        assert!(co_1.is_within_1_range(&co_9));
+
+        // let bad_co_3 = Coordinate::new(1, 3);
+        // let bad_co_6 = Coordinate::new(0, 2);
+        // assert!(!co_1.is_within_1_range(&co_3));
+        // assert!(!co_1.is_within_1_range(&co_6));
+    }
+
+    #[test]
+    fn validate_move_case_same_row_right() {
+        let head_start = Coordinate::new(2, 1);
+        let tail_start = Coordinate::new(1, 1);
+        let co_start = RopeCoordinate::new(head_start, tail_start);
+
+        let head_end = Coordinate::new(3, 1);
+        let tail_end = Coordinate::new(2, 1);
+        let co_end = RopeCoordinate::new(head_end, tail_end);
+
+        assert_eq!(co_end, co_start.move_rope(&Right));
+    }
+
+    #[test]
+    fn validate_move_case_same_col_up() {
+        let head_start = Coordinate::new(2, 2);
+        let tail_start = Coordinate::new(2, 1);
+        let co_start = RopeCoordinate::new(head_start, tail_start);
+
+        let head_end = Coordinate::new(2, 3);
+        let tail_end = Coordinate::new(2, 2);
+        let co_end = RopeCoordinate::new(head_end, tail_end);
+
+        assert_eq!(co_end, co_start.move_rope(&Up));
+    }
+
+    #[test]
+    fn validate_move_case_diagonal_up() {
+        let head_start = Coordinate::new(2, 2);
+        let tail_start = Coordinate::new(1, 1);
+        let co_start = RopeCoordinate::new(head_start, tail_start);
+
+        let head_end = Coordinate::new(2, 3);
+        let tail_end = Coordinate::new(2, 2);
+        let co_end = RopeCoordinate::new(head_end, tail_end);
+
+        assert_eq!(co_end, co_start.move_rope(&Up));
+    }
+
+    #[test]
+    fn validate_move_case_diagonal_right() {
+        let head_start = Coordinate::new(2, 2);
+        let tail_start = Coordinate::new(1, 1);
+        let co_start = RopeCoordinate::new(head_start, tail_start);
+
+        let head_end = Coordinate::new(3, 2);
+        let tail_end = Coordinate::new(2, 2);
+        let co_end = RopeCoordinate::new(head_end, tail_end);
+
+        assert_eq!(co_end, co_start.move_rope(&Right));
+    }
+
+    #[test]
+    fn validate_move_case_same_col_overlap_down() {
+        let head_start = Coordinate::new(1, 2);
+        let tail_start = Coordinate::new(1, 1);
+        let co_start = RopeCoordinate::new(head_start, tail_start);
+
+        let head_end = Coordinate::new(1, 1);
+        let tail_end = Coordinate::new(1, 1);
+        let co_end = RopeCoordinate::new(head_end, tail_end);
+
+        assert_eq!(co_end, co_start.move_rope(&Down));
     }
 }

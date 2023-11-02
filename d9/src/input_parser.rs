@@ -27,11 +27,11 @@ pub fn parse_input(file: &File) -> Result<Motions> {
                 bad_char => Err(anyhow!("Non direction char, {}", bad_char))?,
             };
 
-            let amount = line_chars
-                .get(2)
-                .ok_or_else(|| anyhow!("No amountchar in line"))?
-                .to_digit(10)
-                .ok_or_else(|| anyhow!("Char is not a digit"))? as i32;
+            let amount = line_chars[2..]
+                .iter()
+                .collect::<String>()
+                .parse()
+                .context("Failed parsing amount")?;
 
             Ok(Motion { direction, amount })
         })
