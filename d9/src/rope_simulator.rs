@@ -6,6 +6,19 @@ pub enum Direction {
     Right,
 }
 
+pub enum Diagonal {
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+pub enum PossibleMotion {
+    Stay,
+    Direction(Direction),
+    Diagonal(Diagonal),
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Motion {
     pub direction: Direction,
@@ -13,6 +26,7 @@ pub struct Motion {
 }
 
 impl Motion {
+    #[cfg(test)]
     pub fn new(direction: Direction, amount: i32) -> Self {
         Motion { amount, direction }
     }
@@ -42,6 +56,15 @@ impl Coordinate {
         }
     }
 
+    fn move_diagonal(&self, diagonal: &Diagonal) -> Self {
+        match diagonal {
+            Diagonal::TopRight => Self::new(self.x + 1, self.y + 1),
+            Diagonal::BottomRight => Self::new(self.x + 1, self.y - 1),
+            Diagonal::BottomLeft => Self::new(self.x - 1, self.y - 1),
+            Diagonal::TopLeft => Self::new(self.x - 1, self.y + 1),
+        }
+    }
+
     fn val_is_within_1_range(a: i32, b: i32) -> bool {
         a >= b - 1 && a <= b + 1
     }
@@ -50,8 +73,22 @@ impl Coordinate {
         Self::val_is_within_1_range(self.x, cmp.x) && Self::val_is_within_1_range(self.y, cmp.y)
     }
 
-    fn is_linear_movement(&self, cmp: &Coordinate) -> bool {
-        self.x == cmp.x || self.y == cmp.y
+    fn get_possible_motion(&self, cmp: &Coordinate) -> PossibleMotion {
+        use Diagonal::{BottomLeft, BottomRight, TopLeft, TopRight};
+        use Direction::{Down, Left, Right, Up};
+        use PossibleMotion::{Diagonal as Dia, Direction as Dir, Stay};
+        match (self, cmp) {
+            (a, b) if a.is_within_1_range(b) => Stay,
+            (a, b) if a.y < b.y && a.x == b.x => Dir(Up),
+            (a, b) if a.y > b.y && a.x == b.x => Dir(Down),
+            (a, b) if a.y == b.y && a.x < b.x => Dir(Right),
+            (a, b) if a.y == b.y && a.x > b.x => Dir(Left),
+            (a, b) if a.y < b.y && a.x < b.x => Dia(TopRight),
+            (a, b) if a.y < b.y && a.x > b.x => Dia(TopLeft),
+            (a, b) if a.y > b.y && a.x > b.x => Dia(BottomLeft),
+            (a, b) if a.y > b.y && a.x < b.x => Dia(BottomRight),
+            _ => unreachable!("Should be no other cases"),
+        }
     }
 }
 
@@ -71,40 +108,10 @@ impl RopeCoordinate {
     }
 
     fn move_head_to_co(&self, next_head_co: Coordinate) -> Self {
-        match (self, next_head_co) {
-            (rope_co, next_head_co)
-                //Only move the head in the the case
-                //where the move destination is within 1
-                //range of tail
-                if next_head_co.is_within_1_range(&rope_co.tail)  =>
-            {
-              Self::new(
-                    next_head_co,
-                    rope_co.tail.clone(),
-                )
-            }
-            //In the case where they are in the same row and moving left or right
-            //both head and tail move in that direction by the same amount
-            (rope_co, next_head_co)
-                if !rope_co.head.is_linear_movement(&next_head_co) =>
-            {
-                 Self::new(next_head_co.clone(),
-                        Coordinate::new(
-                            rope_co.tail.x + (next_head_co.x - rope_co.head.x),
-                            rope_co.tail.y + (next_head_co.y - rope_co.head.y)
-                        )
-                    )
-            }
-            //In the default case where head and tail are not on the same column or row
-            //and the head move is not within 1 of the tail, head moves and the tail occupies
-            //the space of the head was previously in
-            (rope_co, next_head_co) => {
-                 Self::new(
-                    next_head_co,
-                    rope_co.head.clone(),
-                )
-
-            }
+        match self.tail.get_possible_motion(&next_head_co) {
+            PossibleMotion::Stay => Self::new(next_head_co, self.tail.clone()),
+            PossibleMotion::Direction(d) => Self::new(next_head_co, self.tail.move_direction(&d)),
+            PossibleMotion::Diagonal(d) => Self::new(next_head_co, self.tail.move_diagonal(&d)),
         }
     }
 
@@ -315,21 +322,5 @@ mod test {
         let co_end = RopeCoordinate::new(head_end, tail_end);
 
         assert_eq!(co_end, co_start.move_rope(&Down));
-    }
-
-    #[test]
-    fn knot_jump_motion() {
-        let head_start = Coordinate::new(2, 0);
-        let tail_start = Coordinate::new(1, 0);
-        let co_start = RopeCoordinate::new(head_start, tail_start);
-
-        let next_co_head = Coordinate::new(3, 1);
-        let next_co_tail = Coordinate::new(2, 1);
-        let co_end = RopeCoordinate::new(next_co_head.clone(), next_co_tail);
-
-        assert!(!co_start.head.is_linear_movement(&next_co_head));
-        assert!(!next_co_head.is_within_1_range(&co_start.tail));
-        assert_eq!(co_end, co_start.move_head_to_co(next_co_head));
-        //                 && next_head_co.is_within_1_range(&rope_co.tail)
     }
 }
